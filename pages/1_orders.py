@@ -37,32 +37,50 @@ def format_orders(raw_orders):
     rows = []
     for o in raw_orders:
         try:
-            title = o["lineItems"][0]["title"]
-            qty = o["lineItems"][0]["quantity"]
+            item = o["lineItems"][0]
+            title = item.get("title", "N/A")
+            qty = item.get("quantity", 1)
             revenue = float(o["pricingSummary"]["total"]["value"])
             status = o.get("orderFulfillmentStatus", "N/A")
             date = o["creationDate"]
+            order_id = o.get("orderId")
+            buyer = o.get("buyer", {}).get("username", "N/A")
+            sku = item.get("sku", "N/A")
             rows.append({
+                "Order ID": order_id,
+                "SKU": sku,
                 "Item": title,
                 "Qty": qty,
                 "Revenue": revenue,
                 "Status": status,
+                "Buyer": buyer,
                 "Date": date
             })
         except Exception as e:
-            pass
+            continue
     return pd.DataFrame(rows)
 
 # ==== Streamlit UI ====
 st.title("🧾 Orders & Sales History")
+
 days = st.slider("Look back (days)", 7, 90, 30)
-st.info("Showing orders from the last {} days".format(days))
+search_term = st.text_input("Search by Order ID, Item Title, or SKU")
 
 try:
     raw_orders = get_all_orders(days_back=days)
     df = format_orders(raw_orders)
-    st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
-    st.metric("Total Orders", len(df))
-    st.metric("Total Revenue", f"${df['Revenue'].sum():.2f}")
+
+    if search_term:
+        search_term = search_term.lower()
+        df = df[df.apply(lambda row: search_term in str(row["Order ID"]).lower()
+                         or search_term in str(row["Item"]).lower()
+                         or search_term in str(row["SKU"]).lower(), axis=1)]
+
+    if df.empty:
+        st.warning("No matching orders found.")
+    else:
+        st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
+        st.metric("Total Orders", len(df))
+        st.metric("Total Revenue", f"${df['Revenue'].sum():.2f}")
 except Exception as e:
     st.error(f"Failed to load orders: {e}")
