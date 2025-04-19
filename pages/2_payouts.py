@@ -11,12 +11,10 @@ headers = {
     "Accept": "application/json"
 }
 
-def get_payouts(days_back=30):
-    start_time = (datetime.utcnow() - timedelta(days=days_back)).isoformat() + "Z"
-    url = f"https://api.ebay.com/sell/finances/v1/payout?limit=50"
-
-
+def get_payouts():
+    url = "https://api.ebay.com/sell/finances/v1/payout?limit=50"
     all_payouts = []
+
     while url:
         res = requests.get(url, headers=headers)
         if res.status_code != 200:
@@ -40,19 +38,19 @@ def get_payouts(days_back=30):
 
     return pd.DataFrame(rows)
 
-# ==== UI ====
+# ==== Streamlit UI ====
 st.set_page_config(page_title="eBay Payouts", layout="wide")
 st.title("💵 Payouts to Bank")
 
-days = st.slider("Look back (days)", 7, 90, 30)
-
 try:
-    df = get_payouts(days)
+    df = get_payouts()
     if df.empty:
         st.warning("No payouts found.")
     else:
         df["Payout Date"] = pd.to_datetime(df["Payout Date"])
-        st.dataframe(df.sort_values("Payout Date", ascending=False), use_container_width=True)
+        df = df.sort_values("Payout Date", ascending=False)
+        st.dataframe(df, use_container_width=True)
+
         succeeded = df[df["Status"] == "SUCCEEDED"]
         st.metric("Total Deposited", f"${succeeded['Amount'].sum():.2f}")
         st.metric("Total Payouts", len(df))
