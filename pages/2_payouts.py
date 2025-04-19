@@ -14,8 +14,7 @@ def get_payouts(days_back=30):
     start_time = (datetime.utcnow() - timedelta(days=days_back)).isoformat() + "Z"
     url = "https://api.ebay.com/sell/finances/v1/transaction"
     params = {
-        "transaction_date": f"{start_time}..",
-        "limit": "50"
+    "limit": "50"
     }
 
     all_txns = []
@@ -60,7 +59,10 @@ days = st.slider("Look back (days)", 7, 90, 30)
 
 try:
     df = get_payouts(days)
-    st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
-    st.metric("Net Total", f"${df['Amount'].sum():.2f}")
+    if df.empty:
+        st.warning("No payouts found.")
+    else:
+        st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
+        st.metric("Net Total", f"${df['Amount'].sum():.2f}")
 except Exception as e:
     st.error(f"Failed to load payouts: {e}")
