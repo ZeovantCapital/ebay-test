@@ -37,3 +37,13 @@ def get_transactions():
 st.set_page_config(page_title="eBay Finances API Debug", layout="wide")
 st.title("🧪 eBay Finances API Debug: Transaction Endpoint")
 
+st.markdown("""
+This tool will test your access to the `/sell/finances/v1/transaction` endpoint and print the raw response.
+
+- ✅ If you get `200`, your account has API access to finances.
+- ❌ If you get `404`, your eBay seller account may not be fully linked to the Finances API yet.
+- ❌ If you get `401`, check your token scope or refresh the token.
+""")
+
+if st.button("Run Finances API Test"):
+    get_transactions()
