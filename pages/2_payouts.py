@@ -17,6 +17,7 @@ def get_payouts():
 
     while url:
         res = requests.get(url, headers=headers)
+        st.code(f"Status: {res.status_code}\n\nResponse:\n{res.text}")
         if res.status_code != 200:
             st.error(f"API Error {res.status_code}")
             st.code(res.text)
