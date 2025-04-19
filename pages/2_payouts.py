@@ -13,16 +13,32 @@ headers = {
 
 def get_payouts(days_back=30):
     start_time = (datetime.utcnow() - timedelta(days=days_back)).isoformat() + "Z"
-    url = f"https://api.ebay.com/sell/finances/v1/transaction?transaction_date={start_time}..&limit=50"
+    url = "https://api.ebay.com/sell/finances/v1/transaction"
+    params = {
+        "transaction_date": f"{start_time}..",
+        "limit": "50"
+    }
 
     all_txns = []
-    while url:
-        res = requests.get(url, headers=headers)
-        st.code(res.text, language="json")  # Show the raw response
-        data = res.json()
 
-        all_txns += data.get("transactions", [])
-        url = data.get("next") if "next" in data else None
+    while url:
+        res = requests.get(url, headers=headers, params=params)
+        if res.status_code != 200:
+            st.error(f"API Error {res.status_code}")
+            st.code(res.text)
+            return pd.DataFrame()
+
+        try:
+            data = res.json()
+            txns = data.get("transactions", [])
+            all_txns += txns
+            url = data.get("next", None)
+            params = None  # don't resend params when using pagination URL
+        except Exception as e:
+            st.error("❌ JSON parse failed")
+            st.error(f"Exception: {e}")
+            st.code(res.text)
+            return pd.DataFrame()
 
     rows = []
     for txn in all_txns:
@@ -37,6 +53,7 @@ def get_payouts(days_back=30):
             "Amount": amount
         })
     return pd.DataFrame(rows)
+
 
 # Streamlit UI
 st.title("💰 Payouts & Transaction Summary")
