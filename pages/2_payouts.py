@@ -12,15 +12,11 @@ headers = {
 
 def get_payouts(days_back=30):
     start_time = (datetime.utcnow() - timedelta(days=days_back)).isoformat() + "Z"
-    url = "https://api.ebay.com/sell/finances/v1/transaction"
-    params = {
-    "limit": "50"
-    }
+    url = f"https://api.ebay.com/sell/finances/v1/payout?filter=payoutDate:[{start_time}..]&limit=50"
 
-    all_txns = []
-
+    all_payouts = []
     while url:
-        res = requests.get(url, headers=headers, params=params)
+        res = requests.get(url, headers=headers)
         if res.status_code != 200:
             st.error(f"API Error {res.status_code}")
             st.code(res.text)
@@ -28,10 +24,8 @@ def get_payouts(days_back=30):
 
         try:
             data = res.json()
-            txns = data.get("transactions", [])
-            all_txns += txns
+            all_payouts += data.get("payouts", [])
             url = data.get("next", None)
-            params = None  # don't resend params when using pagination URL
         except Exception as e:
             st.error("❌ JSON parse failed")
             st.error(f"Exception: {e}")
@@ -39,22 +33,22 @@ def get_payouts(days_back=30):
             return pd.DataFrame()
 
     rows = []
-    for txn in all_txns:
-        ttype = txn.get("transactionType", "N/A")
-        amount = float(txn.get("transactionAmount", {}).get("value", 0))
-        date = txn.get("transactionDate", "")
-        order = txn.get("orderId", "N/A")
-        rows.append({
-            "Date": date,
-            "Type": ttype,
-            "Order ID": order,
-            "Amount": amount
-        })
+    for p in all_payouts:
+        try:
+            rows.append({
+                "Payout ID": p.get("payoutId"),
+                "Status": p.get("payoutStatus"),
+                "Amount": float(p.get("amount", {}).get("value", 0)),
+                "Currency": p.get("amount", {}).get("currency", "USD"),
+                "Date": p.get("payoutDate")
+            })
+        except:
+            continue
+
     return pd.DataFrame(rows)
 
-
-# Streamlit UI
-st.title("💰 Payouts & Transaction Summary")
+# ==== Streamlit UI ====
+st.title("💰 Payouts Summary")
 days = st.slider("Look back (days)", 7, 90, 30)
 
 try:
@@ -63,6 +57,6 @@ try:
         st.warning("No payouts found.")
     else:
         st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
-        st.metric("Net Total", f"${df['Amount'].sum():.2f}")
+        st.metric("Total Payouts", f"${df['Amount'].sum():.2f}")
 except Exception as e:
     st.error(f"Failed to load payouts: {e}")
