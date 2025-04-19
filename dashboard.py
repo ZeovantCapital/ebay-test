@@ -43,7 +43,7 @@ def get_orders(days_back=100):
 
         "filter": f"creationdate:[{start_time}..{end_time}]",
 
-        "limit": "10"
+        "limit": "100"
 
     }
 
