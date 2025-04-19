@@ -13,7 +13,8 @@ headers = {
 
 def get_payouts(days_back=30):
     start_time = (datetime.utcnow() - timedelta(days=days_back)).isoformat() + "Z"
-    url = f"https://api.ebay.com/sell/finances/v1/payout?filter=payoutDate:[{start_time}..]&limit=50"
+    url = f"https://api.ebay.com/sell/finances/v1/payout?limit=50"
+
 
     all_payouts = []
     while url:
