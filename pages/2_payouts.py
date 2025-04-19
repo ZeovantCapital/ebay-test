@@ -18,7 +18,9 @@ def get_payouts(days_back=30):
     all_txns = []
     while url:
         res = requests.get(url, headers=headers)
+        print("RAW RESPONSE TEXT:", res.text)  # ← add this line
         data = res.json()
+
         all_txns += data.get("transactions", [])
         url = data.get("next") if "next" in data else None
 
