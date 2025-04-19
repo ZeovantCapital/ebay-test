@@ -10,11 +10,10 @@ headers = {
     "Accept": "application/json"
 }
 
-def get_payouts(days_back=30):
-    start_time = (datetime.utcnow() - timedelta(days=days_back)).isoformat() + "Z"
-    url = f"https://api.ebay.com/sell/finances/v1/payout?filter=payoutDate:[{start_time}..]&limit=50"
+def get_inventory_items():
+    url = "https://api.ebay.com/sell/inventory/v1/inventory_item?limit=50"
+    all_items = []
 
-    all_payouts = []
     while url:
         res = requests.get(url, headers=headers)
         if res.status_code != 200:
@@ -24,39 +23,37 @@ def get_payouts(days_back=30):
 
         try:
             data = res.json()
-            all_payouts += data.get("payouts", [])
-            url = data.get("next", None)
+            items = data.get("inventoryItems", [])
+            for item in items:
+                product = item.get("product", {})
+                offer = item.get("offer", {})
+                availability = item.get("availability", {}).get("shipToLocationAvailability", {})
+                all_items.append({
+                    "SKU": item.get("sku"),
+                    "Title": product.get("title", "N/A"),
+                    "Price": offer.get("price", {}).get("value", "N/A"),
+                    "Currency": offer.get("price", {}).get("currency", "USD"),
+                    "Quantity": availability.get("quantity", 0),
+                    "Status": offer.get("listingStatus", "N/A"),
+                    "Marketplace": offer.get("marketplaceId", "N/A")
+                })
+            url = data.get("href", None) if "next" in data else None
         except Exception as e:
-            st.error("❌ JSON parse failed")
-            st.error(f"Exception: {e}")
-            st.code(res.text)
+            st.error(f"Parsing error: {e}")
             return pd.DataFrame()
 
-    rows = []
-    for p in all_payouts:
-        try:
-            rows.append({
-                "Payout ID": p.get("payoutId"),
-                "Status": p.get("payoutStatus"),
-                "Amount": float(p.get("amount", {}).get("value", 0)),
-                "Currency": p.get("amount", {}).get("currency", "USD"),
-                "Date": p.get("payoutDate")
-            })
-        except:
-            continue
+    return pd.DataFrame(all_items)
 
-    return pd.DataFrame(rows)
-
-# ==== Streamlit UI ====
-st.title("💰 Payouts Summary")
-days = st.slider("Look back (days)", 7, 90, 30)
-
+# ==== UI ====
+st.title("📦 Inventory & Listings")
 try:
-    df = get_payouts(days)
+    df = get_inventory_items()
     if df.empty:
-        st.warning("No payouts found.")
+        st.warning("No inventory items found.")
     else:
-        st.dataframe(df.sort_values("Date", ascending=False), use_container_width=True)
-        st.metric("Total Payouts", f"${df['Amount'].sum():.2f}")
+        st.dataframe(df.sort_values("SKU"), use_container_width=True)
+        st.metric("Total Listings", len(df))
+        active = df[df["Status"] == "ACTIVE"]
+        st.metric("Active Listings", len(active))
 except Exception as e:
-    st.error(f"Failed to load payouts: {e}")
+    st.error(f"Failed to load inventory: {e}")
